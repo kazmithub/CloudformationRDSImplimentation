@@ -1,0 +1,240 @@
+Parameters:
+  
+  Owner:
+    Description: EnterIndividual Name Responsible.
+    Type: String
+    Default: Ahsan Kazmi
+  
+  Project:
+    Description: Cloudformation Assignment.
+    Type: String
+    Default: Mini-Project
+
+Outputs:
+
+  MyVPC:
+    Description: VPC referred.
+    Value: !Ref MyVPC
+    Export:
+      Name: !Sub 'StackVPC-MyVpc'
+
+  PublicSubnet:
+    Description: Public Subnet Referred.
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub 'StackVPC-PublicSubnet'
+
+  PrivateSubnet: 
+    Description: Private Subnet Referred. 
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub 'StackVPC-PrivateSubnet'
+
+  MyDBGroup:
+    Description: My Private Security Group Referred.
+    Value: !Ref MyDBSecurityGroup
+    Export:
+      Name: !Sub 'StackVPC-MyDBSecurityGroup'
+
+  MyPublicSecurityGroup:
+    Description: My Public Security Group Referred.
+    Value: !Ref MyPublicSecurityGroup
+    Export:
+      Name: !Sub 'StackVPC-MyPublicSecurityGroup'
+
+  MyVPCGatewayAttachment:
+    Description: VPC Gateway Attachment Referred.
+    Value: !Ref MyVPCGatewayAttachment
+    Export:
+      Name: !Sub 'StackVPC-MyVPCGatewayAttachment'
+  
+  MySubnetGroup:
+    Description: Subnet Group Referred.
+    Value: !Ref PrivateSubnetGroup
+    Export:
+      Name: !Sub 'StackVPC-MyPrivateSubnetGroup'
+
+    
+Resources:
+
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16 
+      Tags:
+      - Key: "Name"
+        Value: "Ahsan"
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-west-1a"
+      CidrBlock: 10.0.1.0/24
+      VpcId: !Ref MyVPC
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+      - Key: "Name"
+        Value: "MyPublicSubnet-us-west-1a"
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-west-1b"
+      CidrBlock: 10.0.3.0/24
+      VpcId: !Ref MyVPC
+      Tags:
+      - Key: "Name"
+        Value: "MyPrivateSubnet-us-west-1b"
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-west-1a"
+      CidrBlock: 10.0.2.0/24
+      VpcId: !Ref MyVPC
+      Tags:
+      - Key: "Name"
+        Value: "MyPrivateSubnet2-us-west-1b"
+
+  PrivateSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: "Database Subnet Group"
+      DBSubnetGroupName: "DatabaseSubnetGroup"
+      SubnetIds: 
+        - !Ref PrivateSubnet
+        - !Ref PrivateSubnet2
+          
+  MyInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: "Name"
+        Value: "Ahsan"
+
+  MyVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment 
+    Properties:
+      InternetGatewayId: !Ref MyInternetGateway
+      VpcId: !Ref MyVPC
+
+  MyEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: MyVPCGatewayAttachment
+    Properties:  
+      Domain : vpc
+
+  MyNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties: 
+      AllocationId: !GetAtt MyEIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+      - Key: "Name"
+        Value: "Ahsan"
+      
+  MyInternetRouteOutTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+      - Key: "Name"
+        Value: "Ahsan"
+
+  MyPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+      - Key: "Name"
+        Value: "Ahsan"     
+
+  MyInternetRouteout:
+    Type: AWS::EC2::Route
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyInternetGateway
+      RouteTableId: !Ref MyInternetRouteOutTable
+
+  MyPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref MyPrivateRouteTable
+      NatGatewayId: !Ref MyNatGateway   
+      
+  MySubnetRouteTableAssociation:  
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref MyInternetRouteOutTable
+      SubnetId: !Ref PublicSubnet
+
+  MyPrivateSubnetRouteTableAssociation:  
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref MyPrivateRouteTable
+      SubnetId: !Ref PrivateSubnet
+
+  MyPublicSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: Security Group for Public Instance.
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0 
+      VpcId : !Ref MyVPC
+          
+  MyDBSecurityGroup:
+
+    Type: AWS::RDS::DBSecurityGroup
+    Properties: 
+      EC2VpcId: !Ref MyVPC
+      DBSecurityGroupIngress: 
+        CIDRIP: 10.0.1.0/24
+      GroupDescription: DBSecurityGroup
+      Tags: 
+        - Key: "Name"
+          Value: "DB Security Group"
+
+    # Type: AWS::EC2::SecurityGroup
+    # Properties:
+    #   GroupDescription: Security Group for Private Instance.
+    #   VpcId: !Ref MyVPC
+    #   SecurityGroupIngress: 
+    #     - IpProtocol: tcp
+    #       FromPort: 22
+    #       ToPort: 22
+    #       CidrIp: 10.0.1.0/24
+
+    #     - IpProtocol: tcp
+    #       FromPort: 3306
+    #       ToPort: 3306
+    #       CidrIp: 10.0.1.0/24
+
+    #     - IpProtocol: tcp
+    #       FromPort: 80
+    #       ToPort: 80
+    #       CidrIp: 10.0.1.0/24
+
+    #     - IpProtocol: tcp
+    #       FromPort: 443
+    #       ToPort: 443
+    #       CidrIp: 10.0.1.0/24
+
+    #   Tags:
+    #     - Key: "Name"
+    #       Value: "MyPrivateSecurityGroup"

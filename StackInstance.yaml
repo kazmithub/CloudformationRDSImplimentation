@@ -1,0 +1,228 @@
+Parameters:
+
+  InstanceTypeParameters:
+    Description: Only deploy t2.micro instances.
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - m1.small
+  
+  ImageIdParameters:
+    Description: Only use ubuntu AMIs.
+    Type: String
+    Default: ami-06397100adf427136
+    AllowedValues:
+      - ami-06397100adf427136
+      # - ami-08692d171e3cf02d6
+  
+  KeynameParameters:
+    Description: use Kazmi-Key for all instances except when other is required.
+    Type: String
+    Default: "Kazmi-Key"
+    AllowedValues:
+      - "Kazmi-Key"
+      - "alam-keypair"
+
+
+Resources:
+
+  MyPublicInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      AvailabilityZone: "us-west-1a"
+      ImageId: !Ref ImageIdParameters
+      KeyName: !Ref KeynameParameters
+      SecurityGroupIds: 
+        - !ImportValue StackVPC-MyPublicSecurityGroup
+      SubnetId: !ImportValue StackVPC-PublicSubnet 
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -x
+          sleep 2m
+          apt-get update -y
+          apt-get install -y mysql-server php php-mysql
+          mysql -u admin -p0514457570 -h ${MyDatabase.Endpoint.Address} <<MYSQL_SCRIPT
+          use test;
+          use test;
+          CREATE TABLE users (
+          id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          firstname VARCHAR(30) NOT NULL,
+          lastname VARCHAR(30) NOT NULL,
+          email VARCHAR(50) NOT NULL,
+          age INT(3),
+          location VARCHAR(50),
+          date TIMESTAMP
+          );
+          MYSQL_SCRIPT
+
+          apt-get install -y apache2 
+          apt-get install -y unzip
+          systemctl start apache2
+          systemctl enable apache2
+          cd /var/www
+          rm -rf html
+          wget https://s3.amazonaws.com/alamkey/html.zip
+          unzip html.zip
+          sed -i -e 's/localhost/${MyDatabase.Endpoint.Address}/g' /var/www/html/config.php
+      Tags:
+      - Key: "Name"
+        Value: "AhsanWeb"
+
+  MyPublicInstanceRR:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      AvailabilityZone: "us-west-1a"
+      ImageId: !Ref ImageIdParameters
+      KeyName: !Ref KeynameParameters
+      SecurityGroupIds: 
+        - !ImportValue StackVPC-MyPublicSecurityGroup
+      SubnetId: !ImportValue StackVPC-PublicSubnet 
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -x
+          sleep 2m
+          apt-get update -y
+          apt-get install -y mysql-server php php-mysql
+          apt-get install -y apache2 
+          apt-get install -y unzip
+          systemctl start apache2
+          systemctl enable apache2
+          cd /var/www
+          rm -rf html
+          wget https://s3.amazonaws.com/alamkey/html.zip
+          unzip html.zip
+          sed -i -e 's/localhost/${MyDatabaseRR.Endpoint.Address}/g' /var/www/html/config.php
+      Tags:
+      - Key: "Name"
+        Value: "AhsanWebRR"
+
+  MyDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties: 
+      AllocatedStorage: 20
+      # AllowMajorVersionUpgrade: Boolean
+      # AutoMinorVersionUpgrade: Boolean
+      # AvailabilityZone: "us-west-1b"
+      BackupRetentionPeriod: "35"
+      # CharacterSetName: String
+      # CopyTagsToSnapshot: "false"
+      # DBClusterIdentifier: String
+      DBInstanceClass: "db.t2.micro"
+      DBInstanceIdentifier: "MyDatabaseSource"
+      DBName: "test"
+      # DBParameterGroupName: String
+      DBSecurityGroups: 
+        - !ImportValue StackVPC-MyDBSecurityGroup
+      # DBSnapshotIdentifier: String
+      DBSubnetGroupName: !ImportValue StackVPC-MyPrivateSubnetGroup
+      # DeleteAutomatedBackups: Boolean
+      # DeletionProtection: Boolean
+      # Domain: String
+      # DomainIAMRoleName: String
+      # EnableCloudwatchLogsExports: 
+      #   - String
+      # EnableIAMDatabaseAuthentication: Boolean
+      # EnablePerformanceInsights: Boolean
+      Engine: "MySQL"
+      # EngineVersion: String
+      # Iops: Integer
+      # KmsKeyId: String
+      # LicenseModel: String
+      MasterUserPassword: "0514457570"
+      MasterUsername: "admin"
+      # MonitoringInterval: Integer
+      # MonitoringRoleArn: String
+      MultiAZ: "true"
+      # OptionGroupName: String
+      # PerformanceInsightsKMSKeyId: String
+      # PerformanceInsightsRetentionPeriod: Integer
+      Port: 3306
+      # PreferredBackupWindow: String
+      # PreferredMaintenanceWindow: String
+      # ProcessorFeatures: 
+      #   - ProcessorFeature
+      # PromotionTier: Integer
+      PubliclyAccessible: "true"
+      # SourceDBInstanceIdentifier: "AhsanDB"
+      # SourceRegion: String
+      # StorageEncrypted: Boolean
+      # StorageType: String
+      Tags: 
+        - Key: "Name"
+          Value: "AhsanDatabase"
+      # Timezone: String
+      # UseDefaultProcessorFeatures: Boolean
+      # VPCSecurityGroups: 
+      #   - String
+
+  MyDatabaseRR:
+    Type: AWS::RDS::DBInstance
+    Properties: 
+      AllocatedStorage: 20
+      # AllowMajorVersionUpgrade: Boolean
+      # AutoMinorVersionUpgrade: Boolean
+      # AvailabilityZone: "us-west-1b"
+      BackupRetentionPeriod: "35"
+      # CharacterSetName: String
+      # CopyTagsToSnapshot: "false"
+      # DBClusterIdentifier: String
+      DBInstanceClass: "db.t2.micro"
+      DBInstanceIdentifier: "Replica-DB"
+      # DBName: "test"
+      # DBParameterGroupName: String
+      # DBSecurityGroups: 
+      #  - !ImportValue StackVPC-MyDBSecurityGroup
+      # DBSnapshotIdentifier: String
+      # DBSubnetGroupName: !ImportValue StackVPC-MyPrivateSubnetGroup
+      # DeleteAutomatedBackups: Boolean
+      # DeletionProtection: Boolean
+      # Domain: String
+      # DomainIAMRoleName: String
+      # EnableCloudwatchLogsExports: 
+      #   - String
+      # EnableIAMDatabaseAuthentication: Boolean
+      # EnablePerformanceInsights: Boolean
+      # Engine: "MySQL"
+      # EngineVersion: String
+      # Iops: Integer
+      # KmsKeyId: String
+      # LicenseModel: String
+      # MasterUserPassword: "0514457570"
+      # MasterUsername: "admin"
+      # MonitoringInterval: Integer
+      # MonitoringRoleArn: String
+      # MultiAZ: "true"
+      # OptionGroupName: String
+      # PerformanceInsightsKMSKeyId: String
+      # PerformanceInsightsRetentionPeriod: Integer
+      # Port: 3306
+      # PreferredBackupWindow: String
+      # PreferredMaintenanceWindow: String
+      # ProcessorFeatures: 
+      #   - ProcessorFeature
+      # PromotionTier: Integer
+      PubliclyAccessible: "false"
+      SourceDBInstanceIdentifier: !Ref MyDatabase
+      # SourceRegion: String
+      # StorageEncrypted: Boolean
+      # StorageType: String
+      Tags: 
+        - Key: "Name"
+          Value: "AhsanDatabase"
+      # Timezone: String
+      # UseDefaultProcessorFeatures: Boolean
+      # VPCSecurityGroups: 
+      #   - String
+
+Outputs:
+
+  MyEndpoint:
+    Description: Endpoint referred.
+    Value: !GetAtt MyDatabase.Endpoint.Address
+    Export:
+      Name: !Sub 'StackInstance-Endpoint'

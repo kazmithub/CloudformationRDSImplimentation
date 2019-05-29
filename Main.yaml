@@ -1,0 +1,48 @@
+Resources:
+  StackVPC:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/alamkey/Kazmi+Stuff/StackVPC.yaml"
+      Parameters:
+        Owner: "Ahsan Kazmi"
+        Project: "Mini-Project"
+      Tags:
+        - Key: Name
+          Value: AhsanVpc
+  
+  StackInstance:
+    Type: AWS::CloudFormation::Stack
+    DependsOn : StackVPC
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/alamkey/Kazmi+Stuff/StackInstance.yaml"
+      Parameters:
+        InstanceTypeParameters: t2.micro  
+        ImageIdParameters: ami-06397100adf427136
+        KeynameParameters: "Kazmi-Key"
+      Tags:
+        - Key: Name
+          Value: AhsanPrivateInstances
+
+  StackLB:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: StackInstance
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/alamkey/Kazmi+Stuff/StackLB.yaml"
+      Tags:
+        - Key: Name
+          Value: AhsanLoad-Balancer
+
+  StackAsg:
+    Type: AWS::CloudFormation::Stack
+    DependsOn : StackLB
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/alamkey/Kazmi+Stuff/StackAsg.yaml"
+      Parameters:
+        InstanceTypeParameters: t2.micro  
+        ImageIdParameters: ami-06397100adf427136
+        KeynameParameters: "Kazmi-Key"
+      Tags:
+        - Key: Name
+          Value: AhsanPublic
+ 
+        
